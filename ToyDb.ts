@@ -91,7 +91,13 @@ export class ToyDb<Tag extends string[]> {
     tag: U,
     data: Omit<T, typeof idName>[],
     idName: keyof T,
+    options: {
+      ttl?: number;
+    } = {},
   ): Promise<T[]> {
+    const {
+      ttl,
+    } = options;
     const saves = [] as T[];
     for (let i = 0; i < data.length; ++i) {
       const id = `${tag}_${this.genId()}`;
@@ -102,6 +108,14 @@ export class ToyDb<Tag extends string[]> {
       } as T);
     }
     this.store.push(...saves);
+
+    if (ttl) {
+      setTimeout(() => {
+        saves.forEach((s) => {
+          this.removeUnique({ idName, idValue: s[idName] });
+        });
+      }, ttl);
+    }
 
     return saves;
   }

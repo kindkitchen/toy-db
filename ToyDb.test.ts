@@ -1,8 +1,4 @@
-import {
-  assertArrayIncludes,
-  assertEquals,
-  assertNotEquals,
-} from "jsr:@std/assert@^1.0.11";
+import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@^1.0.11";
 import { ToyDb } from "./ToyDb.ts";
 
 Deno.test("should work", async (suite) => {
@@ -103,28 +99,37 @@ Deno.test("should work", async (suite) => {
     assertEquals(findAgain, null, "item should not be found after remove");
   });
 
-  await suite.step("update item", async () => {
+  await suite.step("save with ttl", async () => {
     const user = {
-      name: "Nemo",
-      favorite_colors: ["blue", "yellow"],
+      name: "Temporal",
+      favorite_colors: [],
     };
     type User = typeof user & { id: string };
-    const [saveResult] = await db.save<User, "user">("user", [
-      user,
-      user,
-      user,
-    ], "id");
+    const [saveResult] = await db.save<User, "user">(
+      "user",
+      [
+        user,
+      ],
+      "id",
+      { ttl: 100 },
+    );
     const id = saveResult.id;
-    const favorite_colors = ["black", "red"];
-    const updatedResult = await db.update<User>({
-      favorite_colors,
-    }, {
+    const actual_is_present = await db.findUnique<User>({
       idName: "id",
       idValue: id,
-    }, {
-      favorite_colors: ({ fresh, prev }) =>
-        Promise.resolve([...(prev || []), ...(fresh || [])]),
     });
-    assertArrayIncludes(updatedResult?.favorite_colors || [], favorite_colors);
+    assert(actual_is_present !== null, "The user should be in the db");
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    const actual_is_still_present = await db.findUnique<User>({
+      idName: "id",
+      idValue: id,
+    });
+    assert(actual_is_still_present !== null, "The user still should be the db");
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    const actual_is_not_present = await db.findUnique<User>({
+      idName: "id",
+      idValue: id,
+    });
+    assert(actual_is_not_present === null, "The user should be auto-removed");
   });
 });
