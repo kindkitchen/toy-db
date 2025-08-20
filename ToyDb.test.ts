@@ -131,5 +131,10 @@ Deno.test("should work", async (suite) => {
       idValue: id,
     });
     assert(actual_is_not_present === null, "The user should be auto-removed");
+    await db.save("long_ttl", [{}], "id", {
+      ttl: 5000,
+    });
+    /// without this clean - test will fail
+    db.clean_all_ttl_timers();
   });
 });
