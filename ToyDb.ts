@@ -3,6 +3,7 @@ import { init_id_generator } from "./init_id_generator.ts";
 import type { IdKv, Something, UpdateInstruction, Where } from "./types.ts";
 
 export class ToyDb<Tag extends string[]> {
+  private ttl_timers = new Set<number>();
   public static async init<T extends string[] = string[]>(): Promise<ToyDb<T>> {
     const instance = new ToyDb<T>();
 
@@ -13,6 +14,18 @@ export class ToyDb<Tag extends string[]> {
     public idSet: Set<string> = new Set(),
     public genId: () => string = init_id_generator(),
   ) {}
+
+  /**
+   * @description
+   * Will be good to use invoke this method before finish work with toy db
+   * to prevent dangled timers.
+   */
+  public clean_all_ttl_timers() {
+    this.ttl_timers.values().forEach((id) => {
+      clearTimeout(id);
+      this.ttl_timers.delete(id);
+    });
+  }
 
   public async update<T extends Something>(
     data: Partial<T>,
@@ -110,11 +123,13 @@ export class ToyDb<Tag extends string[]> {
     this.store.push(...saves);
 
     if (ttl) {
-      setTimeout(() => {
+      const timeout_id = setTimeout(() => {
         saves.forEach((s) => {
           this.removeUnique({ idName, idValue: s[idName] });
+          this.ttl_timers.delete(timeout_id);
         });
       }, ttl);
+      this.ttl_timers.add(timeout_id);
     }
 
     return saves;
