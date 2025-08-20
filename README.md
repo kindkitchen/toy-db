@@ -7,9 +7,14 @@ const db = await ToyDb.init<["demo", "user", "post"]>();
 /**
  * @description save() always expect many items
  */
-const [user] = await db.save<User>("user", [
-  { email: "example@gmail.com" },
-], "id");
+const [user] = await db.save<User>(
+  "user",
+  [
+    { email: "example@gmail.com" },
+  ],
+  "id",
+  { ttl: 1000 * 20 }, /// ttl feature
+);
 
 type User = {
   email: string;
