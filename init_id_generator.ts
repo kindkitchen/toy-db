@@ -1,3 +1,4 @@
+/** Creates a process-local incremental id generator. */
 export function init_id_generator(): () => string {
   let counter = 0;
   const initMoment = Date.now();

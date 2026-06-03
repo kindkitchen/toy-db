@@ -2,8 +2,19 @@
 import { init_id_generator } from "./init_id_generator.ts";
 import type { IdKv, Something, UpdateInstruction, Where } from "./types.ts";
 
+/**
+ * Small in-memory database for tests, demos, and local experiments.
+ *
+ * Data is stored in process memory only. It is lost when the process exits.
+ */
 export class ToyDb<Tag extends string[]> {
   private ttl_timers = new Set<number>();
+
+  /**
+   * Creates an empty ToyDb instance.
+   *
+   * Pass a tuple of tag names to set the default save tag type.
+   */
   public static async init<T extends string[] = string[]>(): Promise<ToyDb<T>> {
     const instance = new ToyDb<T>();
 
@@ -16,15 +27,22 @@ export class ToyDb<Tag extends string[]> {
   ) {}
 
   /**
-   * @description
-   * Will be good to use invoke this method before finish work with toy db
-   * to prevent dangled timers.
+   * Clears all pending TTL timers.
+   *
+   * Useful at the end of tests that save records with long TTL values.
    */
   public clean_all_ttl_timers() {
     this.ttl_timers.forEach((id) => clearTimeout(id));
     this.ttl_timers.clear();
   }
 
+  /**
+   * Updates one item by id.
+   *
+   * Returns the updated item, or `null` when no matching item exists. Merge
+   * instructions can compute final field values from fresh data, previous data,
+   * and the current database instance.
+   */
   public async update<T extends Something>(
     data: Partial<T>,
     {
@@ -73,6 +91,11 @@ export class ToyDb<Tag extends string[]> {
     return fresh as T;
   }
 
+  /**
+   * Finds items that pass one filter or every filter in an array.
+   *
+   * Pagination defaults to `{ skip: 0, limit: 10 }`.
+   */
   public async findWhere<T extends Something>(
     filter: Where<T> | Where<T>[],
     pagination: {
@@ -105,6 +128,12 @@ export class ToyDb<Tag extends string[]> {
     return res.slice(skip);
   }
 
+  /**
+   * Saves many items and assigns a generated id to each item.
+   *
+   * The generated id is prefixed with `tag`. When `ttl` is set, saved items are
+   * automatically removed after that many milliseconds.
+   */
   public async save<T extends Something, U extends string = Tag[number]>(
     tag: U,
     data: Omit<T, typeof idName>[],
@@ -140,6 +169,11 @@ export class ToyDb<Tag extends string[]> {
     return saves;
   }
 
+  /**
+   * Removes one item by id.
+   *
+   * Returns the removed item, or `null` when no matching item exists.
+   */
   async removeUnique<T extends Something = Something>(
     {
       idName,
@@ -156,6 +190,11 @@ export class ToyDb<Tag extends string[]> {
     return deleted as T;
   }
 
+  /**
+   * Finds one item by id.
+   *
+   * Returns `null` when no matching item exists.
+   */
   async findUnique<T extends Something = Something>({
     idName,
     idValue,
