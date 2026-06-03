@@ -21,10 +21,8 @@ export class ToyDb<Tag extends string[]> {
    * to prevent dangled timers.
    */
   public clean_all_ttl_timers() {
-    this.ttl_timers.values().forEach((id) => {
-      clearTimeout(id);
-      this.ttl_timers.delete(id);
-    });
+    this.ttl_timers.forEach((id) => clearTimeout(id));
+    this.ttl_timers.clear();
   }
 
   public async update<T extends Something>(
@@ -35,13 +33,14 @@ export class ToyDb<Tag extends string[]> {
     }: IdKv<T>,
     merge_instructions?: UpdateInstruction<T>,
   ): Promise<T | null> {
-    // deno-lint-ignore no-this-alias
-    const This = this;
     const isPrevExist = this.idSet.has(idValue);
     if (!isPrevExist) {
       return null;
     }
-    const prev = await this.removeUnique({ idName, idValue }) as T;
+    const prev = await this.findUnique({ idName, idValue }) as T | null;
+    if (!prev) {
+      return null;
+    }
     const extra = merge_instructions &&
       Object.fromEntries(
         await Promise.all(
@@ -50,7 +49,7 @@ export class ToyDb<Tag extends string[]> {
               T
             >[keyof UpdateInstruction<T>];
             const value = await _instruction!({
-              db: This,
+              db: this,
               fresh: data[k as keyof typeof data],
               prev: prev[k as keyof typeof prev],
             });
@@ -62,10 +61,16 @@ export class ToyDb<Tag extends string[]> {
       ...prev,
       ...data,
       ...extra,
+      [idName]: idValue,
     };
-    this.store.push(fresh);
+    const index = this.store.findIndex((item) => item[idName] === idValue);
+    if (index === -1) {
+      return null;
+    }
+    this.store[index] = fresh;
+    this.idSet.add(idValue);
 
-    return fresh;
+    return fresh as T;
   }
 
   public async findWhere<T extends Something>(
@@ -126,8 +131,8 @@ export class ToyDb<Tag extends string[]> {
       const timeout_id = setTimeout(() => {
         saves.forEach((s) => {
           this.removeUnique({ idName, idValue: s[idName] });
-          this.ttl_timers.delete(timeout_id);
         });
+        this.ttl_timers.delete(timeout_id);
       }, ttl);
       this.ttl_timers.add(timeout_id);
     }
@@ -144,7 +149,9 @@ export class ToyDb<Tag extends string[]> {
     if (!this.idSet.has(idValue)) return null;
 
     const index = this.store.findIndex((item) => item[idName] === idValue);
+    if (index === -1) return null;
     const [deleted] = this.store.splice(index, 1);
+    this.idSet.delete(idValue);
 
     return deleted as T;
   }

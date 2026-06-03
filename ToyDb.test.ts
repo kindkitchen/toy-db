@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@^1.0.11";
+import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { ToyDb } from "./ToyDb.ts";
 
 Deno.test("should work", async (suite) => {
